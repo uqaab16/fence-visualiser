@@ -1,6 +1,0 @@
-{
-  "name": "Fencing Pro Visualizer",
-  "description": "Interactive layout planner and realistic perspective customizer for modern fences, with real-time bill of materials (BOM), cost calculations, and an AI-powered design consultant.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
