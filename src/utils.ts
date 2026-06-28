@@ -63,13 +63,20 @@ export function estimateFencingCosts(
       laborCost: 0,
       totalPrice: 0,
       postCount: 0,
+      intermediatePostCount: 0,
       concreteBagsCount: 0
     };
   }
 
   // Billing length is the locked map measurement, not the on-canvas drawing geometry
   const totalMeters = parseFloat(propertyFrontageMeters.toFixed(1));
-  
+
+  // Panels have a 2.4m max structural span (AS-2423), so any run beyond one panel requires
+  // mandatory intermediate line posts between the drawn corner/end posts. These are real,
+  // billed structural posts — not decorative canvas filler.
+  const maxSpanLength = 2.4;
+  const intermediatePostCount = Math.max(0, Math.ceil(totalMeters / maxSpanLength) - 1);
+
   // Base Price
   const materialDetails = FENCE_PRICES[material];
   const baseRate = customPricing
@@ -92,7 +99,10 @@ export function estimateFencingCosts(
       totalPostsCost += POST_UPGRADE_COSTS[p.type as keyof typeof POST_UPGRADE_COSTS] || 0;
     }
   });
-  
+
+  // Mandatory intermediate line posts are billed as standard structural posts
+  totalPostsCost += intermediatePostCount * (customPricing ? customPricing.standardPostCost : POST_UPGRADE_COSTS.standard);
+
   // Gate costs
   let totalGatesCost = 0;
   gatesList.forEach(g => {
@@ -113,12 +123,15 @@ export function estimateFencingCosts(
 
   const laborCost = installIncluded ? totalMeters * laborRatePerMeter : 0;
   
+  // Total structural post count = drawn corner/end posts + mandatory intermediate line posts
+  const totalPostCount = postsList.length + intermediatePostCount;
+
   // Concrete bags and brackets estimate
-  const concreteBagsCount = postsList.length * 2; // ~2 bags per post
+  const concreteBagsCount = totalPostCount * 2; // ~2 bags per post
   const concreteCost = concreteBagsCount * 12.5; // $12.50 per bag
-  
+
   const totalPrice = materialsSubtotal + laborCost + concreteCost;
-  
+
   return {
     totalMeters,
     ratePerMeter,
@@ -128,7 +141,8 @@ export function estimateFencingCosts(
     concreteCost: parseFloat(concreteCost.toFixed(2)),
     laborCost: parseFloat(laborCost.toFixed(2)),
     totalPrice: parseFloat(totalPrice.toFixed(2)),
-    postCount: postsList.length,
+    postCount: totalPostCount,
+    intermediatePostCount,
     concreteBagsCount
   };
 }

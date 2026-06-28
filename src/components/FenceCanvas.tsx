@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import SatelliteModal from './SatelliteModal';
 import { Post, Segment, FenceMaterial, FenceHeight, ColorOption } from '../types';
 import { calculateDistance, COLORS_PALETTE } from '../utils';
@@ -237,6 +237,39 @@ export default function FenceCanvas({
 
   // Aspect ratio tracker for the background image
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+
+  // Mandatory intermediate structural line posts (2.4m max panel span), allocated across the
+  // drawn segments so the visual post count always matches the billed count in the pricing
+  // engine (same Math.ceil(propertyFrontage / 2.4) - 1 formula as estimateFencingCosts).
+  const intermediatePostCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    const totalIntermediatePosts = Math.max(0, Math.ceil(propertyFrontage / 2.4) - 1);
+
+    const segLengths = segments.map(seg => {
+      const a = posts.find(p => p.id === seg.startPostId);
+      const b = posts.find(p => p.id === seg.endPostId);
+      if (!a || !b) return 0;
+      return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+    });
+    const totalLength = segLengths.reduce((sum, l) => sum + l, 0);
+
+    if (totalLength <= 0 || totalIntermediatePosts <= 0) {
+      segments.forEach(seg => counts.set(seg.id, 0));
+      return counts;
+    }
+
+    const raw = segLengths.map(l => (l / totalLength) * totalIntermediatePosts);
+    const base = raw.map(r => Math.floor(r));
+    let remaining = totalIntermediatePosts - base.reduce((sum, b) => sum + b, 0);
+    const order = raw
+      .map((r, i) => ({ i, frac: r - base[i] }))
+      .sort((a, b) => b.frac - a.frac);
+    for (let k = 0; k < remaining; k++) {
+      base[order[k].i] += 1;
+    }
+    segments.forEach((seg, idx) => counts.set(seg.id, base[idx]));
+    return counts;
+  }, [segments, posts, propertyFrontage]);
 
   // Track container dimensions to scale the zoomBox wrapper accurately without cropping the image
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
@@ -1488,10 +1521,10 @@ export default function FenceCanvas({
                 const segmentHeight = pEnd.y - pStart.y;
                 const segmentLength = Math.sqrt(segmentWidth ** 2 + segmentHeight ** 2);
 
-                // Perspective and frontage-based dynamic spans spacing calculation (AS-2423 approved)
-                const segmentLengthMeters = (segmentLength / 100) * propertyFrontage;
-                const maxSpanLength = 2.40; // Locked strictly to exactly 2400mm (2.40 meters) standard panel size
-                const spanCount = Math.max(1, Math.ceil(segmentLengthMeters / maxSpanLength));
+                // Structural line post count for this segment — pre-allocated so the total across
+                // all segments exactly matches the billed intermediatePostCount in estimateFencingCosts
+                const intermediateCount = intermediatePostCounts.get(seg.id) || 0;
+                const spanCount = intermediateCount + 1;
 
                 // Perspective scaling factors for the start and end posts
                 const scaleStart = getPerspectiveScale(pStart.y);
@@ -1607,7 +1640,7 @@ export default function FenceCanvas({
                         });
                       })()}
 
-                      {/* Intermediate dynamic posts/pillars to prevent texture stretching on wide spans */}
+                      {/* Mandatory structural line posts (2.4m max span) — billed in the quote, not decorative */}
                       {spanCount > 1 && Array.from({ length: spanCount - 1 }).map((_, jIndex) => {
                         const j = jIndex + 1;
                         const t = j / spanCount;
@@ -1804,7 +1837,7 @@ export default function FenceCanvas({
                         );
                       })}
 
-                      {/* Intermediate dynamic posts/pillars to prevent texture stretching on wide spans */}
+                      {/* Mandatory structural line posts (2.4m max span) — billed in the quote, not decorative */}
                       {spanCount > 1 && Array.from({ length: spanCount - 1 }).map((_, jIndex) => {
                         const j = jIndex + 1;
                         const t = j / spanCount;
