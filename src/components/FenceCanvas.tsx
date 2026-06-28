@@ -60,6 +60,7 @@ interface FenceCanvasProps {
   setIsLeftPanelOpen?: (val: boolean) => void;
   activeTab: string;
   slatProfile?: '65' | '90';
+  onImageAspectRatioChange?: (ratio: number | null) => void;
 }
 
 export default function FenceCanvas({
@@ -89,7 +90,8 @@ export default function FenceCanvas({
   setIsFullScreen,
   setIsLeftPanelOpen,
   activeTab,
-  slatProfile = '65'
+  slatProfile = '65',
+  onImageAspectRatioChange
 }: FenceCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomBoxRef = useRef<HTMLDivElement>(null);
@@ -237,6 +239,12 @@ export default function FenceCanvas({
 
   // Aspect ratio tracker for the background image
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+
+  // Surface the image aspect ratio to the parent so other panels (e.g. cost estimate)
+  // can correct percentage-space distances back into real-world meters.
+  useEffect(() => {
+    onImageAspectRatioChange?.(imageAspectRatio);
+  }, [imageAspectRatio, onImageAspectRatioChange]);
 
   // Track container dimensions to scale the zoomBox wrapper accurately without cropping the image
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
