@@ -124,9 +124,6 @@ export default function App() {
   const [slatProfile, setSlatProfile] = useState<'65' | '90'>('65');
   const [fenceScale, setFenceScale] = useState<number>(1.0); // locked to 1.0 (controlled by global height drop-down)
   const [propertyFrontage, setPropertyFrontage] = useState<number>(15); // standard 15m front lot
-  // Width/height ratio of the current background photo, used to correct percentage-space
-  // fence distances back into real-world meters (the canvas stretches non-uniformly to fit photos).
-  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
   // Nodes (posts) state - Blank Slate
   const [posts, setPosts] = useState<Post[]>([]);
@@ -519,7 +516,6 @@ export default function App() {
             setIsLeftPanelOpen={setIsLeftPanelOpen}
             activeTab={activeTab}
             slatProfile={slatProfile}
-            onImageAspectRatioChange={setImageAspectRatio}
           />
         </div>
 
@@ -536,7 +532,6 @@ export default function App() {
               posts={posts}
               segments={segments}
               propertyFrontage={propertyFrontage}
-              imageAspectRatio={imageAspectRatio}
               setIsRightPanelOpen={setIsRightPanelOpen}
               customPricing={pricing}
             />

@@ -31,7 +31,6 @@ interface EstimateSummaryProps {
   posts: Post[];
   segments: Segment[];
   propertyFrontage: number;
-  imageAspectRatio?: number | null;
   setIsRightPanelOpen?: (val: boolean) => void;
   customPricing?: DynamicPricing;
 }
@@ -44,7 +43,6 @@ export default function EstimateSummary({
   posts,
   segments,
   propertyFrontage,
-  imageAspectRatio,
   setIsRightPanelOpen,
   customPricing
 }: EstimateSummaryProps) {
@@ -79,38 +77,14 @@ export default function EstimateSummary({
     }
   }, []);
 
-  // Compute Euclidean segments percentage sum.
-  // The canvas viewBox is stretched non-uniformly (preserveAspectRatio="none") to fit the
-  // photo's actual aspect ratio, so 1% of x and 1% of y are NOT the same real-world distance
-  // unless the photo happens to be square. Dividing the y delta by imageAspectRatio (width/height)
-  // converts it back to the same scale as x before measuring distance, so vertical post placement
-  // (e.g. following a roofline or slope) doesn't inflate the real-world fence length.
-  const getEuclideanSegmentsPct = () => {
-    if (posts.length === 0 || segments.length === 0) {
-      return 0;
-    }
-    const aspect = imageAspectRatio && imageAspectRatio > 0 ? imageAspectRatio : 1;
-    let totalPct = 0;
-    segments.forEach(seg => {
-      const pStart = posts.find(p => p.id === seg.startPostId);
-      const pEnd = posts.find(p => p.id === seg.endPostId);
-      if (pStart && pEnd) {
-        const dx = pEnd.x - pStart.x;
-        const dy = (pEnd.y - pStart.y) / aspect;
-        const dist = Math.sqrt(dx ** 2 + dy ** 2);
-        totalPct += dist;
-      }
-    });
-    return totalPct;
-  };
-
-  const segmentsPct = getEuclideanSegmentsPct();
+  // Billing is bound directly to the locked map measurement (propertyFrontage), never to the
+  // on-canvas post/segment geometry. The canvas is a visual preview only — how a fence line is
+  // drawn (straight, diagonal, or following the roofline) must never change the quoted price.
   const gatesList = segments.filter(s => s.hasGate).map(s => ({ type: s.gateType }));
 
   const estimate = estimateFencingCosts(
     material,
     height,
-    segmentsPct,
     propertyFrontage,
     posts,
     gatesList,

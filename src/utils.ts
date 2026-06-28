@@ -48,8 +48,7 @@ export function calculateDistance(x1: number, y1: number, x2: number, y2: number
 export function estimateFencingCosts(
   material: FenceMaterial,
   height: FenceHeight,
-  segmentsLengthPct: number, // total Euclidean distance (0 - 100 sum of segments)
-  propertyFrontageMeters: number,
+  propertyFrontageMeters: number, // locked map measurement; canvas drawing is visual-only and never affects billing
   postsList: { type: string }[],
   gatesList: { type?: 'single' | 'double' }[],
   installIncluded: boolean = true,
@@ -71,8 +70,8 @@ export function estimateFencingCosts(
     };
   }
 
-  // Convert Euclidean percentage length to real-world meters
-  const totalMeters = parseFloat(((segmentsLengthPct / 100) * propertyFrontageMeters).toFixed(1));
+  // Billing length is the locked map measurement, not the on-canvas drawing geometry
+  const totalMeters = parseFloat(propertyFrontageMeters.toFixed(1));
   
   // Base Price
   const materialDetails = FENCE_PRICES[material];
