@@ -84,7 +84,6 @@ export default function EstimateSummary({
 
   const estimate = estimateFencingCosts(
     material,
-    height,
     propertyFrontage,
     posts,
     gatesList,

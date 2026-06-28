@@ -20,16 +20,14 @@ export const COLORS_PALETTE: ColorOption[] = [
   { name: 'Raw Natural Wood', hex: '#C19A6B', isColorbond: false, desc: 'Traditional rustic raw wood with authentic grain' }
 ];
 
-export const FENCE_PRICES: Record<FenceMaterial, { basePerMeter: number; heightMultiplier: Record<FenceHeight, number>; label: string }> = {
+export const FENCE_PRICES: Record<FenceMaterial, { basePerMeter: number; label: string }> = {
   slat_fencing: {
     label: 'Modern Slat Fencing',
-    basePerMeter: 135,
-    heightMultiplier: { 900: 0.75, 1200: 0.88, 1500: 0.98, 1800: 1.0, 2100: 1.2 }
+    basePerMeter: 135
   },
   post_and_rail: {
     label: 'Post & Rail + Black Chainwire',
-    basePerMeter: 105,
-    heightMultiplier: { 900: 0.8, 1200: 0.9, 1500: 1.0, 1800: 1.1, 2100: 1.25 }
+    basePerMeter: 105
   }
 };
 
@@ -47,7 +45,6 @@ export function calculateDistance(x1: number, y1: number, x2: number, y2: number
 
 export function estimateFencingCosts(
   material: FenceMaterial,
-  height: FenceHeight,
   propertyFrontageMeters: number, // locked map measurement; canvas drawing is visual-only and never affects billing
   postsList: { type: string }[],
   gatesList: { type?: 'single' | 'double' }[],
@@ -79,7 +76,7 @@ export function estimateFencingCosts(
     ? (material === 'slat_fencing' ? customPricing.slatMaterialCost : customPricing.postRailMaterialCost)
     : (materialDetails?.basePerMeter || 100);
 
-  const ratePerMeter = baseRate * (materialDetails?.heightMultiplier[height] || 1.0);
+  const ratePerMeter = baseRate;
   const rawMaterialCost = totalMeters * ratePerMeter;
   
   // Post costs
