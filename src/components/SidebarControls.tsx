@@ -342,26 +342,6 @@ export default function SidebarControls({
               </div>
             )}
 
-            {/* Aluminium Blade Custom Options block */}
-            {material === 'aluminium_blade' && (
-              <div className="border-t border-[#2f3136] pt-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5 font-sans">
-                    <Sliders className="w-3.5 h-3.5 text-zinc-400" />
-                    Blade Spec (CAD)
-                  </span>
-                  <span className="text-[9px] bg-teal-950/40 text-teal-400 border border-teal-900/40 px-2 py-0.5 rounded font-mono font-bold uppercase">AS-2423</span>
-                </div>
-                <div className="bg-[#18191c] border border-[#2f3136] p-2.5 rounded-lg flex flex-col gap-1.5 text-[10px] text-zinc-400 leading-relaxed font-sans">
-                  <div className="flex justify-between"><span className="text-zinc-500">Blade profile</span><span className="text-white font-mono">65 × 16 × 1.2mm</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-500">Blade pitch</span><span className="text-white font-mono">85mm c/c (69mm gap)</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-500">Backing rails</span><span className="text-white font-mono">2 × 40 × 40mm</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-500">Rail position</span><span className="text-white font-mono">150mm top & bottom</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-500">Max panel span</span><span className="text-white font-mono">2364mm</span></div>
-                </div>
-              </div>
-            )}
-
             {/* Post & Rail Custom Options block (2 or 3 Rails, 80mm structural details) */}
             {material === 'post_and_rail' && (
               <div className="border-t border-[#2f3136] pt-4 flex flex-col gap-3">
