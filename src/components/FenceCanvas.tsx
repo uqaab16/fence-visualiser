@@ -62,6 +62,18 @@ interface FenceCanvasProps {
   slatProfile?: '65' | '90';
 }
 
+// Darken (factor < 1) or lighten (factor > 1) a #rrggbb hex color, used for procedural shading
+// of 2.5D blade side-faces. Returns an rgb() string clamped to valid 0–255 channels.
+function shadeHex(hex: string, factor: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  const r = clamp(parseInt(m[1], 16) * factor);
+  const g = clamp(parseInt(m[2], 16) * factor);
+  const b = clamp(parseInt(m[3], 16) * factor);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 export default function FenceCanvas({
   material,
   railCount = 3,
@@ -1922,63 +1934,75 @@ export default function FenceCanvas({
                   const railThickStart = (40 / height) * vhStart;
                   const railThickEnd   = (40 / height) * vhEnd;
 
-                  // Pixel-relative blade pitch: 1 blade every ~9px regardless of canvas zoom
-                  const bladePitchSVG = Math.max(0.6, 900 / containerSize.width);
+                  // Pixel-relative blade pitch (anti-aliasing rule): density follows on-screen
+                  // length, NOT physical meters, so it never collapses into a solid black barcode.
+                  const bladePitchSVG = Math.max(0.85, 1100 / containerSize.width);
                   const numBlades = Math.max(1, Math.round(segmentLength / bladePitchSVG));
-                  const bladeWidthFrac = 0.28; // blade face = ~28% of pitch (16mm / ~57mm visual pitch)
+
+                  // CAD ratio: 16mm face within an 85mm pitch (16 face + 69 gap). The gap reads
+                  // ~4.3x the face. Front face = (16/85) of the pitch; depth side ≈ face width.
+                  const faceWidth  = bladePitchSVG * (16 / 85);
+                  const depthWidth = faceWidth * 0.85; // 2.5D side face simulating 65mm depth receding right
+
+                  // Shaded tones for the louver depth illusion (single light source, recede to the right)
+                  const faceFill = color.hex;
+                  const sideFill = shadeHex(color.hex, 0.55); // darker right-side profile
+                  const topFill  = shadeHex(color.hex, 1.25); // subtle lit top cut
+
+                  const renderBlade = (k: number) => {
+                    const t = (k + 0.5) / numBlades;
+
+                    // Skip blade if it falls within a gate opening
+                    if (seg.hasGate) {
+                      const { startPct, endPct } = getGateSpanPcts(seg, segmentLength);
+                      if (t >= startPct && t <= endPct) return null;
+                    }
+
+                    const bx = pStart.x + t * segmentWidth;
+                    const by = pStart.y + t * segmentHeight;
+                    const scaleB = getPerspectiveScale(by);
+                    const vhB = vhStart + t * (vhEnd - vhStart);
+
+                    const fw = faceWidth * scaleB;
+                    const dw = depthWidth * scaleB;
+
+                    // Blades span the full fence height (ground → top); the 40×40 rails are inset
+                    // 150mm from each end, so the blade tips cleanly overhang past both rails.
+                    const topY = by - vhB;               // clean sharp top (above top rail)
+                    const botY = by;                     // ground line (below bottom rail)
+                    const bladeH = botY - topY;
+
+                    const xL = bx - fw / 2;               // left edge of front face
+                    const xR = bx + fw / 2;               // right edge of front face
+
+                    return (
+                      <g key={`blade-${k}`} className="pointer-events-none">
+                        {/* Side depth face (receding right) — darker, drawn first so the front face overlaps it */}
+                        <polygon
+                          points={`${xR},${topY} ${xR + dw},${topY + dw * 0.35} ${xR + dw},${botY + dw * 0.35} ${xR},${botY}`}
+                          fill={sideFill}
+                        />
+                        {/* Front face — flat architectural cut, no caps */}
+                        <rect
+                          x={xL}
+                          y={topY}
+                          width={fw}
+                          height={bladeH}
+                          fill={faceFill}
+                        />
+                        {/* Sharp lit top edge of the front face */}
+                        <polygon
+                          points={`${xL},${topY} ${xR},${topY} ${xR + dw},${topY + dw * 0.35} ${xL + dw},${topY + dw * 0.35}`}
+                          fill={topFill}
+                        />
+                      </g>
+                    );
+                  };
 
                   return (
                     <g key={seg.id} className="pointer-events-auto cursor-pointer" onPointerDown={(e) => handlePointerDownSegment(e, seg.id)}>
 
-                      {/* Background fill */}
-                      <polygon
-                        points={`${pStart.x},${pStart.y} ${pEnd.x},${pEnd.y} ${pEnd.x},${pEnd.y - vhEnd} ${pStart.x},${pStart.y - vhStart}`}
-                        fill={color.hex}
-                        opacity="0.08"
-                        stroke="none"
-                      />
-
-                      {/* Vertical blades — pixel-density spaced, drawn behind rails */}
-                      {Array.from({ length: numBlades }).map((_, k) => {
-                        const t = (k + 0.5) / numBlades;
-                        const bx = pStart.x + t * segmentWidth;
-                        const by = pStart.y + t * segmentHeight;
-                        const scaleB = getPerspectiveScale(by);
-                        const vhB = vhStart + t * (vhEnd - vhStart);
-                        const bw = bladePitchSVG * bladeWidthFrac * scaleB;
-                        const capH = (150 / height) * vhB; // 150mm protruding cap above top rail
-
-                        // Skip blade if it falls within a gate opening
-                        if (seg.hasGate) {
-                          const { startPct, endPct } = getGateSpanPcts(seg, segmentLength);
-                          if (t >= startPct && t <= endPct) return null;
-                        }
-
-                        return (
-                          <g key={`blade-${k}`} className="pointer-events-none">
-                            {/* Blade body */}
-                            <rect
-                              x={bx - bw / 2}
-                              y={by - vhB - capH}
-                              width={bw}
-                              height={vhB + capH + 0.15 * scaleB}
-                              fill={color.hex}
-                              stroke="#00000033"
-                              strokeWidth="0.02"
-                            />
-                            {/* Plastic cap highlight at tip */}
-                            <rect
-                              x={bx - bw / 2 - 0.015}
-                              y={by - vhB - capH}
-                              width={bw + 0.03}
-                              height={capH * 0.35}
-                              fill={color.hex}
-                              opacity="0.6"
-                            />
-                          </g>
-                        );
-                      })}
-
+                      {/* ── BACKGROUND LAYER: horizontal backing rails drawn FIRST ── */}
                       {/* Backing rail — bottom (40×40mm at 150mm from base) */}
                       {(() => {
                         const oS = vhStart * railFracBottom;
@@ -1986,7 +2010,7 @@ export default function FenceCanvas({
                         return (
                           <path
                             d={`M ${pStart.x} ${pStart.y - oS} L ${pEnd.x} ${pEnd.y - oE} L ${pEnd.x} ${pEnd.y - oE - railThickEnd} L ${pStart.x} ${pStart.y - oS - railThickStart} Z`}
-                            fill={postColor.hex}
+                            fill={shadeHex(color.hex, 0.7)}
                             stroke="#00000055"
                             strokeWidth="0.04"
                           />
@@ -2000,12 +2024,15 @@ export default function FenceCanvas({
                         return (
                           <path
                             d={`M ${pStart.x} ${pStart.y - oS} L ${pEnd.x} ${pEnd.y - oE} L ${pEnd.x} ${pEnd.y - oE - railThickEnd} L ${pStart.x} ${pStart.y - oS - railThickStart} Z`}
-                            fill={postColor.hex}
+                            fill={shadeHex(color.hex, 0.7)}
                             stroke="#00000055"
                             strokeWidth="0.04"
                           />
                         );
                       })()}
+
+                      {/* ── FOREGROUND LAYER: vertical blades drawn LAST, face-mounted over the rails ── */}
+                      {Array.from({ length: numBlades }).map((_, k) => renderBlade(k))}
 
                       {/* Mandatory structural line posts (2.364m max span) — billed in the quote, not decorative */}
                       {spanCount > 1 && Array.from({ length: spanCount - 1 }).map((_, jIndex) => {
