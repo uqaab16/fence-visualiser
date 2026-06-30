@@ -87,6 +87,13 @@ export default function SidebarControls({
       subtitle: 'Standard premium slats',
       desc: 'Sleek premium slat fencing panels with designer ventilation gaps. Excellent for modern architectural homes.',
       visual: 'repeating-linear-gradient(0deg, #3B3F42, #3B3F42 8px, transparent 8px, transparent 12px)'
+    },
+    {
+      id: 'aluminium_blade' as FenceMaterial,
+      title: 'Aluminium Blade Fence',
+      subtitle: 'Vertical blade pickets',
+      desc: 'Architectural vertical blade panels (65×16mm blades, 85mm pitch) on 40×40mm backing rails. 2364mm panel span. Premium modern look with a semi-open profile.',
+      visual: 'repeating-linear-gradient(90deg, #3B3F42, #3B3F42 5px, transparent 5px, transparent 14px)'
     }
   ];
 
@@ -331,6 +338,26 @@ export default function SidebarControls({
                 <div className="bg-[#18191c] border border-[#2f3136] p-2.5 rounded-lg flex items-start gap-2 text-[10px] text-zinc-400 leading-relaxed font-sans">
                   <Info className="w-3.5 h-3.5 shrink-0 text-teal-400 mt-0.5" />
                   <span>Choose between sleek 65mm slats with standard spacing or a chunkier 90mm slat profile for a fuller, more substantial boundary aesthetic.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Aluminium Blade Custom Options block */}
+            {material === 'aluminium_blade' && (
+              <div className="border-t border-[#2f3136] pt-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5 font-sans">
+                    <Sliders className="w-3.5 h-3.5 text-zinc-400" />
+                    Blade Spec (CAD)
+                  </span>
+                  <span className="text-[9px] bg-teal-950/40 text-teal-400 border border-teal-900/40 px-2 py-0.5 rounded font-mono font-bold uppercase">AS-2423</span>
+                </div>
+                <div className="bg-[#18191c] border border-[#2f3136] p-2.5 rounded-lg flex flex-col gap-1.5 text-[10px] text-zinc-400 leading-relaxed font-sans">
+                  <div className="flex justify-between"><span className="text-zinc-500">Blade profile</span><span className="text-white font-mono">65 × 16 × 1.2mm</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-500">Blade pitch</span><span className="text-white font-mono">85mm c/c (69mm gap)</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-500">Backing rails</span><span className="text-white font-mono">2 × 40 × 40mm</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-500">Rail position</span><span className="text-white font-mono">150mm top & bottom</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-500">Max panel span</span><span className="text-white font-mono">2364mm</span></div>
                 </div>
               </div>
             )}
@@ -791,8 +818,10 @@ export default function SidebarControls({
                     const defaultRates: DynamicPricing = {
                       slatMaterialCost: 135,
                       postRailMaterialCost: 105,
+                      bladeMaterialCost: 155,
                       slatLaborCost: 85,
                       postRailLaborCost: 75,
+                      bladeLaborCost: 85,
                       standardPostCost: 0,
                       cornerPostCost: 65,
                       hPostCost: 95,
@@ -820,7 +849,7 @@ export default function SidebarControls({
                 {/* Section A: Panels */}
                 <div className="flex flex-col gap-2">
                   <span className="text-[10px] font-bold text-teal-400 uppercase tracking-widest leading-none">
-                    {material === 'slat_fencing' ? 'Slat Panels (m)' : 'Post & Rail Panels (m)'}
+                    {material === 'slat_fencing' ? 'Slat Panels (m)' : material === 'aluminium_blade' ? 'Blade Panels (m)' : 'Post & Rail Panels (m)'}
                   </span>
                   <div className="grid grid-cols-1 gap-2">
                     {material === 'slat_fencing' ? (
@@ -833,6 +862,21 @@ export default function SidebarControls({
                             const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                             setPricing(prev => ({ ...prev, slatMaterialCost: val }));
                             try { localStorage.setItem('fencing_custom_pricing', JSON.stringify({ ...pricing, slatMaterialCost: val })); } catch {}
+                          }}
+                          className="w-full text-xs font-bold rounded-lg border border-zinc-800 bg-zinc-900 text-white px-2.5 py-1.5 focus:border-teal-500/50 outline-none"
+                          min="0"
+                        />
+                      </div>
+                    ) : material === 'aluminium_blade' ? (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-zinc-400 font-semibold leading-none">Blade Material ($ / meter)</label>
+                        <input
+                          type="number"
+                          value={pricing.bladeMaterialCost}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setPricing(prev => ({ ...prev, bladeMaterialCost: val }));
+                            try { localStorage.setItem('fencing_custom_pricing', JSON.stringify({ ...pricing, bladeMaterialCost: val })); } catch {}
                           }}
                           className="w-full text-xs font-bold rounded-lg border border-zinc-800 bg-zinc-900 text-white px-2.5 py-1.5 focus:border-teal-500/50 outline-none"
                           min="0"
@@ -871,6 +915,21 @@ export default function SidebarControls({
                             const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                             setPricing(prev => ({ ...prev, slatLaborCost: val }));
                             try { localStorage.setItem('fencing_custom_pricing', JSON.stringify({ ...pricing, slatLaborCost: val })); } catch {}
+                          }}
+                          className="w-full text-xs font-bold rounded-lg border border-zinc-800 bg-zinc-900 text-white px-2.5 py-1.5 focus:border-teal-500/50 outline-none"
+                          min="0"
+                        />
+                      </div>
+                    ) : material === 'aluminium_blade' ? (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-zinc-400 font-semibold leading-none">Blade Labour ($ / meter)</label>
+                        <input
+                          type="number"
+                          value={pricing.bladeLaborCost}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setPricing(prev => ({ ...prev, bladeLaborCost: val }));
+                            try { localStorage.setItem('fencing_custom_pricing', JSON.stringify({ ...pricing, bladeLaborCost: val })); } catch {}
                           }}
                           className="w-full text-xs font-bold rounded-lg border border-zinc-800 bg-zinc-900 text-white px-2.5 py-1.5 focus:border-teal-500/50 outline-none"
                           min="0"

@@ -103,8 +103,10 @@ export default function App() {
     return {
       slatMaterialCost: 135,
       postRailMaterialCost: 105,
+      bladeMaterialCost: 155,
       slatLaborCost: 85,
       postRailLaborCost: 75,
+      bladeLaborCost: 85,
       standardPostCost: 0,
       cornerPostCost: 65,
       hPostCost: 95,

@@ -28,7 +28,19 @@ export const FENCE_PRICES: Record<FenceMaterial, { basePerMeter: number; label: 
   post_and_rail: {
     label: 'Post & Rail + Black Chainwire',
     basePerMeter: 105
+  },
+  aluminium_blade: {
+    label: 'Aluminium Blade Fencing',
+    basePerMeter: 155
   }
+};
+
+// Max structural panel span per material — drives both billing (intermediatePostCount) and
+// canvas rendering (visual post spacing) so they always agree.
+export const MATERIAL_MAX_SPAN: Record<FenceMaterial, number> = {
+  slat_fencing: 2.4,    // AS-2423 standard 2400mm panel
+  post_and_rail: 2.4,   // AS-2423 standard 2400mm panel
+  aluminium_blade: 2.364 // CAD-derived: 2364mm max structural blade panel span
 };
 
 export const POST_UPGRADE_COSTS = {
@@ -71,16 +83,16 @@ export function estimateFencingCosts(
   // Billing length is the locked map measurement, not the on-canvas drawing geometry
   const totalMeters = parseFloat(propertyFrontageMeters.toFixed(1));
 
-  // Panels have a 2.4m max structural span (AS-2423), so any run beyond one panel requires
-  // mandatory intermediate line posts between the drawn corner/end posts. These are real,
-  // billed structural posts — not decorative canvas filler.
-  const maxSpanLength = 2.4;
+  // Material-specific max structural span drives intermediate post count
+  const maxSpanLength = MATERIAL_MAX_SPAN[material];
   const intermediatePostCount = Math.max(0, Math.ceil(totalMeters / maxSpanLength) - 1);
 
   // Base Price
   const materialDetails = FENCE_PRICES[material];
   const baseRate = customPricing
-    ? (material === 'slat_fencing' ? customPricing.slatMaterialCost : customPricing.postRailMaterialCost)
+    ? (material === 'slat_fencing' ? customPricing.slatMaterialCost
+      : material === 'aluminium_blade' ? customPricing.bladeMaterialCost
+      : customPricing.postRailMaterialCost)
     : (materialDetails?.basePerMeter || 100);
 
   const ratePerMeter = baseRate;
@@ -116,9 +128,11 @@ export function estimateFencingCosts(
   const materialsSubtotal = rawMaterialCost + totalPostsCost + totalGatesCost;
   
   // Labor installation estimate (Sydney average: $55 to $85 per meter depending on material)
-  const defaultLaborRate = material === 'slat_fencing' ? 85 : 75;
+  const defaultLaborRate = material === 'post_and_rail' ? 75 : 85;
   const laborRatePerMeter = customPricing
-    ? (material === 'slat_fencing' ? customPricing.slatLaborCost : customPricing.postRailLaborCost)
+    ? (material === 'slat_fencing' ? customPricing.slatLaborCost
+      : material === 'aluminium_blade' ? customPricing.bladeLaborCost
+      : customPricing.postRailLaborCost)
     : defaultLaborRate;
 
   const laborCost = installIncluded ? totalMeters * laborRatePerMeter : 0;

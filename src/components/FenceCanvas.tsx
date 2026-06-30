@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import SatelliteModal from './SatelliteModal';
 import { Post, Segment, FenceMaterial, FenceHeight, ColorOption } from '../types';
-import { calculateDistance, COLORS_PALETTE } from '../utils';
+import { calculateDistance, COLORS_PALETTE, MATERIAL_MAX_SPAN } from '../utils';
 import { 
   Move, 
   Plus, 
@@ -238,12 +238,13 @@ export default function FenceCanvas({
   // Aspect ratio tracker for the background image
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
-  // Mandatory intermediate structural line posts (2.4m max panel span), allocated across the
-  // drawn segments so the visual post count always matches the billed count in the pricing
-  // engine (same Math.ceil(propertyFrontage / 2.4) - 1 formula as estimateFencingCosts).
+  // Mandatory intermediate structural line posts, allocated across drawn segments so the
+  // visual post count always matches the billed count in estimateFencingCosts.
+  // Uses material-specific max span from MATERIAL_MAX_SPAN (e.g. 2.4m for slat, 2.364m for blade).
   const intermediatePostCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    const totalIntermediatePosts = Math.max(0, Math.ceil(propertyFrontage / 2.4) - 1);
+    const maxSpan = MATERIAL_MAX_SPAN[material] ?? 2.4;
+    const totalIntermediatePosts = Math.max(0, Math.ceil(propertyFrontage / maxSpan) - 1);
 
     const segLengths = segments.map(seg => {
       const a = posts.find(p => p.id === seg.startPostId);
@@ -269,7 +270,7 @@ export default function FenceCanvas({
     }
     segments.forEach((seg, idx) => counts.set(seg.id, base[idx]));
     return counts;
-  }, [segments, posts, propertyFrontage]);
+  }, [segments, posts, propertyFrontage, material]);
 
   // Track container dimensions to scale the zoomBox wrapper accurately without cropping the image
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
@@ -1903,6 +1904,152 @@ export default function FenceCanvas({
                           fill="rgba(20, 184, 166, 0.05)"
                           stroke="#14b8a6"
                           strokeWidth="0.3"
+                          strokeDasharray="1 1"
+                        />
+                      )}
+                    </g>
+                  );
+                } else if (material === 'aluminium_blade') {
+                  // ─── ALUMINIUM BLADE FENCING ──────────────────────────────────────────
+                  // CAD spec: 65×16×1.2mm blades, 85mm pitch (16mm blade + 69mm gap),
+                  // two 40×40mm backing rails at 150mm from top and bottom of fence height.
+                  // Blade density is pixel-relative (anti-aliasing rule) so the canvas
+                  // always reads as clean architectural blade fencing regardless of zoom.
+
+                  const railFracBottom = 150 / height; // 150mm from bottom / total height
+                  const railFracTop    = (height - 150) / height; // 150mm from top
+
+                  const railThickStart = (40 / height) * vhStart;
+                  const railThickEnd   = (40 / height) * vhEnd;
+
+                  // Pixel-relative blade pitch: 1 blade every ~9px regardless of canvas zoom
+                  const bladePitchSVG = Math.max(0.6, 900 / containerSize.width);
+                  const numBlades = Math.max(1, Math.round(segmentLength / bladePitchSVG));
+                  const bladeWidthFrac = 0.28; // blade face = ~28% of pitch (16mm / ~57mm visual pitch)
+
+                  return (
+                    <g key={seg.id} className="pointer-events-auto cursor-pointer" onPointerDown={(e) => handlePointerDownSegment(e, seg.id)}>
+
+                      {/* Background fill */}
+                      <polygon
+                        points={`${pStart.x},${pStart.y} ${pEnd.x},${pEnd.y} ${pEnd.x},${pEnd.y - vhEnd} ${pStart.x},${pStart.y - vhStart}`}
+                        fill={color.hex}
+                        opacity="0.08"
+                        stroke="none"
+                      />
+
+                      {/* Vertical blades — pixel-density spaced, drawn behind rails */}
+                      {Array.from({ length: numBlades }).map((_, k) => {
+                        const t = (k + 0.5) / numBlades;
+                        const bx = pStart.x + t * segmentWidth;
+                        const by = pStart.y + t * segmentHeight;
+                        const scaleB = getPerspectiveScale(by);
+                        const vhB = vhStart + t * (vhEnd - vhStart);
+                        const bw = bladePitchSVG * bladeWidthFrac * scaleB;
+                        const capH = (150 / height) * vhB; // 150mm protruding cap above top rail
+
+                        // Skip blade if it falls within a gate opening
+                        if (seg.hasGate) {
+                          const { startPct, endPct } = getGateSpanPcts(seg, segmentLength);
+                          if (t >= startPct && t <= endPct) return null;
+                        }
+
+                        return (
+                          <g key={`blade-${k}`} className="pointer-events-none">
+                            {/* Blade body */}
+                            <rect
+                              x={bx - bw / 2}
+                              y={by - vhB - capH}
+                              width={bw}
+                              height={vhB + capH + 0.15 * scaleB}
+                              fill={color.hex}
+                              stroke="#00000033"
+                              strokeWidth="0.02"
+                            />
+                            {/* Plastic cap highlight at tip */}
+                            <rect
+                              x={bx - bw / 2 - 0.015}
+                              y={by - vhB - capH}
+                              width={bw + 0.03}
+                              height={capH * 0.35}
+                              fill={color.hex}
+                              opacity="0.6"
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* Backing rail — bottom (40×40mm at 150mm from base) */}
+                      {(() => {
+                        const oS = vhStart * railFracBottom;
+                        const oE = vhEnd   * railFracBottom;
+                        return (
+                          <path
+                            d={`M ${pStart.x} ${pStart.y - oS} L ${pEnd.x} ${pEnd.y - oE} L ${pEnd.x} ${pEnd.y - oE - railThickEnd} L ${pStart.x} ${pStart.y - oS - railThickStart} Z`}
+                            fill={postColor.hex}
+                            stroke="#00000055"
+                            strokeWidth="0.04"
+                          />
+                        );
+                      })()}
+
+                      {/* Backing rail — top (40×40mm at 150mm from top) */}
+                      {(() => {
+                        const oS = vhStart * railFracTop;
+                        const oE = vhEnd   * railFracTop;
+                        return (
+                          <path
+                            d={`M ${pStart.x} ${pStart.y - oS} L ${pEnd.x} ${pEnd.y - oE} L ${pEnd.x} ${pEnd.y - oE - railThickEnd} L ${pStart.x} ${pStart.y - oS - railThickStart} Z`}
+                            fill={postColor.hex}
+                            stroke="#00000055"
+                            strokeWidth="0.04"
+                          />
+                        );
+                      })()}
+
+                      {/* Mandatory structural line posts (2.364m max span) — billed in the quote, not decorative */}
+                      {spanCount > 1 && Array.from({ length: spanCount - 1 }).map((_, jIndex) => {
+                        const j = jIndex + 1;
+                        const t = j / spanCount;
+                        const px = pStart.x + t * segmentWidth;
+                        const py = pStart.y + t * segmentHeight;
+
+                        if (seg.hasGate) {
+                          const { startPct, endPct } = getGateSpanPcts(seg, segmentLength);
+                          if (t >= startPct && t <= endPct) return null;
+                        }
+
+                        const scale = getPerspectiveScale(py);
+                        const vh = getVisualFenceHeight() * scale;
+                        const postWidth = 0.55 * scale;
+                        const capHeight = 0.24 * scale;
+
+                        return (
+                          <g key={`blade-post-${j}`} className="pointer-events-none">
+                            <ellipse cx={px} cy={py + 0.2} rx={postWidth * 0.85} ry="0.16" fill="#000" opacity="0.28" />
+                            <path
+                              d={`M ${px - postWidth/2} ${py + 0.3} L ${px - postWidth/2} ${py - vh} L ${px + postWidth/2} ${py - vh} L ${px + postWidth/2} ${py + 0.3} Z`}
+                              fill={postColor.hex}
+                              stroke="#00000088"
+                              strokeWidth="0.04"
+                            />
+                            <path
+                              d={`M ${px - postWidth/2 - 0.06} ${py - vh} L ${px - postWidth/2 - 0.06} ${py - vh - capHeight} L ${px + postWidth/2 + 0.06} ${py - vh - capHeight} L ${px + postWidth/2 + 0.06} ${py - vh} Z`}
+                              fill={postColor.hex}
+                              stroke="#000"
+                              strokeWidth="0.04"
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* Selection Aura */}
+                      {isSelected && (
+                        <polygon
+                          points={`${pStart.x},${pStart.y} ${pEnd.x},${pEnd.y} ${pEnd.x},${pEnd.y - vhEnd} ${pStart.x},${pStart.y - vhStart}`}
+                          fill="rgba(20, 184, 166, 0.06)"
+                          stroke="#14b8a6"
+                          strokeWidth="0.32"
                           strokeDasharray="1 1"
                         />
                       )}

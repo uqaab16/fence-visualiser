@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type FenceMaterial = 'slat_fencing' | 'post_and_rail';
+export type FenceMaterial = 'slat_fencing' | 'post_and_rail' | 'aluminium_blade';
 
 export type FenceHeight = 900 | 1200 | 1500 | 1800 | 2100;
 
@@ -38,8 +38,10 @@ export interface Segment {
 export interface DynamicPricing {
   slatMaterialCost: number;
   postRailMaterialCost: number;
+  bladeMaterialCost: number;
   slatLaborCost: number;
   postRailLaborCost: number;
+  bladeLaborCost: number;
   standardPostCost: number;
   cornerPostCost: number;
   hPostCost: number;
